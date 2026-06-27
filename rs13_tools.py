@@ -591,7 +591,7 @@ def _format_float(value: float) -> str:
         return "inf" if value > 0 else "-inf"
     if value == 0:
         return "0"
-    return f"{value:.15g}"
+    return f"{value:.12g}"
 
 
 def _exec_sanitized_rs13_script(path: Path) -> dict:
