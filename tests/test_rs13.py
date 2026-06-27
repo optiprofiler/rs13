@@ -1,6 +1,8 @@
 from pathlib import Path
+from datetime import date
 import math
 import os
+import random
 import sys
 import unittest
 
@@ -19,6 +21,34 @@ from rs13_tools import (
     rs13_select,
     rs13_uses_effective_unconstrained_bounds,
 )
+
+
+def _as_array(value):
+    if value is None:
+        return np.empty(0)
+    return np.asarray(value)
+
+
+def _assert_problem_contract(testcase, problem_name):
+    problem = rs13_load_problem(problem_name)
+    testcase.assertGreaterEqual(problem.n, 1)
+    testcase.assertEqual(problem.x0.size, problem.n)
+    testcase.assertIn(problem.ptype, {"u", "b"})
+
+    fx0 = problem.fun(problem.x0)
+    testcase.assertTrue(math.isfinite(float(fx0)) or math.isnan(float(fx0)))
+
+    cub0 = _as_array(problem.cub(problem.x0))
+    ceq0 = _as_array(problem.ceq(problem.x0))
+    testcase.assertEqual(cub0.ndim, 1)
+    testcase.assertEqual(ceq0.ndim, 1)
+
+    maxcv0 = problem.maxcv(problem.x0)
+    testcase.assertTrue(math.isfinite(float(maxcv0)) or math.isnan(float(maxcv0)))
+
+    # Evaluate twice to catch wrappers that accidentally mutate state.
+    fx1 = problem.fun(problem.x0)
+    testcase.assertTrue(math.isfinite(float(fx1)) or math.isnan(float(fx1)))
 
 
 class RS13Tests(unittest.TestCase):
@@ -70,6 +100,18 @@ class RS13Tests(unittest.TestCase):
         self.assertTrue(math.isfinite(problem.fun(problem.x0)))
         xbest = rs13_known_solution("camel6")
         self.assertAlmostEqual(problem.fun(xbest), -1.0316285, places=5)
+
+    def test_daily_random_small_problem_sample(self):
+        seed = int(os.environ.get("OP_RANDOM_SEED", date.today().strftime("%Y%m%d")))
+        candidates = rs13_select({"ptype": "ub", "mindim": 1, "maxdim": 10, "maxb": 20})
+        self.assertGreaterEqual(len(candidates), 4)
+
+        rng = random.Random(seed)
+        sample = rng.sample(candidates, k=min(4, len(candidates)))
+        print(f"RS13 random sample seed={seed}: {sample}")
+        for problem_name in sample:
+            with self.subTest(problem=problem_name):
+                _assert_problem_contract(self, problem_name)
 
     def test_effective_unconstrained_search_boxes_are_hidden(self):
         for name in ["rosenbr", "convex1_10_1", "problem3.15"]:
