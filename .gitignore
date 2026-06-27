@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+out/
+*.zip
+rs13pm/
+rs13pf/
+rs13c/
+rs13f/
+rs13f90/
+rs13src/
+rs13bam/
+rs13sols/
+problemdata/

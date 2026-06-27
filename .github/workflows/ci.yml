@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # 07:00 Beijing time.
+    - cron: "0 23 * * *"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install git+https://github.com/optiprofiler/optiprofiler.git
+
+      - name: Download official RS13 inputs
+        run: |
+          set -eux
+          mkdir -p "$RUNNER_TEMP/rs13"
+          curl -L --retry 3 -o "$RUNNER_TEMP/rs13/rs13pm.zip" \
+            https://minlp-downloads.nyc3.cdn.digitaloceanspaces.com/testlibs/dfolibs/rs13pm.zip
+          curl -L --retry 3 -o "$RUNNER_TEMP/rs13/rs13sols.zip" \
+            https://minlp-downloads.nyc3.cdn.digitaloceanspaces.com/testlibs/dfolibs/rs13sols.zip
+          curl -L --retry 3 -o "$RUNNER_TEMP/rs13/problemdata.zip" \
+            https://sahinidis.coe.gatech.edu/public/problemdata.zip
+          unzip -q "$RUNNER_TEMP/rs13/rs13pm.zip" -d "$RUNNER_TEMP/rs13/rs13pm_unzipped"
+          unzip -q "$RUNNER_TEMP/rs13/rs13sols.zip" -d "$RUNNER_TEMP/rs13/rs13sols_unzipped"
+          unzip -q "$RUNNER_TEMP/rs13/problemdata.zip" -d "$RUNNER_TEMP/rs13/problemdata_unzipped"
+          echo "RS13PM_DIR=$(find "$RUNNER_TEMP/rs13/rs13pm_unzipped" -type f -name branin.py -exec dirname {} \; -quit)" >> "$GITHUB_ENV"
+          echo "RS13SOLS_DIR=$(find "$RUNNER_TEMP/rs13/rs13sols_unzipped" -type f -name branin.sol -exec dirname {} \; -quit)" >> "$GITHUB_ENV"
+          echo "RS13_PROBLEMDATA_DIR=$(find "$RUNNER_TEMP/rs13/problemdata_unzipped" -type f -name branin.problem.data -exec dirname {} \; -quit)" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Check generated metadata
+        run: |
+          python scripts/collect_info.py
+          git diff --exit-code probinfo_rs13.csv
+
+      - name: Run smoke check
+        run: python scripts/smoke_rs13.py
