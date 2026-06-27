@@ -570,7 +570,7 @@ def _read_probinfo(path: Path) -> list[dict[str, str]]:
 def _write_probinfo(rows: list[dict[str, str]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=RS13_PROBINFO_FIELDS)
+        writer = csv.DictWriter(handle, fieldnames=RS13_PROBINFO_FIELDS, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({field: row.get(field, "") for field in RS13_PROBINFO_FIELDS})
@@ -589,7 +589,9 @@ def _format_float(value: float) -> str:
         return "nan"
     if math.isinf(value):
         return "inf" if value > 0 else "-inf"
-    return f"{value:.17g}"
+    if value == 0:
+        return "0"
+    return f"{value:.15g}"
 
 
 def _exec_sanitized_rs13_script(path: Path) -> dict:
