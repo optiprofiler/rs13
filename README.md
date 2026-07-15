@@ -50,8 +50,10 @@ python -m pip install -e . --no-deps --no-build-isolation
 - `scripts/collect_info.py`: regenerates `probinfo_rs13.csv` from local
   official archive extracts.
 - `scripts/smoke_rs13.py`: small SciPy smoke runner for local sanity checks.
-- `tests/test_rs13.py`: wrapper-level tests for loading, selecting, metadata,
-  known-solution evaluation, and the RS13 bound policy.
+- `tests/test_rs13.py`: runtime wrapper tests for loading, selecting, committed
+  metadata, known-solution evaluation, and the RS13 bound policy.
+- `tests/test_upstream_data_audit.py`: maintenance-only comparison against the
+  independent `problemdata` records.
 - `docs/bound_role_policy.md`: explains why some official BAM search boxes are
   hidden from OptiProfiler.
 - `docs/upstream_data_notes.md`: evidence notes for issues that can be reported
@@ -59,27 +61,43 @@ python -m pip install -e . --no-deps --no-build-isolation
 
 ## Upstream Inputs
 
-Download and extract these official RS13 archives before running
-`rs13_load`, regenerating metadata, or running the full tests:
+The adapter runtime has one required upstream input:
 
-- `rs13pm.zip`: Python files using BAM's SciPy-style API.
-- `rs13sols.zip`: known solution vectors.
-- `problemdata.zip`: dimensions, bounds, and starting points.
+- `rs13pm.zip`: Python files using BAM's SciPy-style API. `rs13_load` and
+  `rs13_check_available` require its extracted directory through
+  `RS13PM_DIR`.
+
+`rs13_select` reads the committed `probinfo_rs13.csv` table and does not need
+an extracted archive. The API-v1 factory also does not download or load any
+upstream data.
+
+Two additional archives are maintenance and test inputs, not runtime or
+API-v1 protocol dependencies:
+
+- `rs13sols.zip`: known solution vectors used as a test oracle and when
+  regenerating `fbest` metadata.
+- `problemdata.zip`: independent dimension, bound, and starting-point records
+  used only by the upstream-data audit and metadata regeneration.
 
 Set the archive locations with environment variables:
 
 ```bash
 export RS13PM_DIR=/path/to/rs13pm
+# Optional test oracle:
 export RS13SOLS_DIR=/path/to/rs13sols
+# Maintenance audit only:
 export RS13_PROBLEMDATA_DIR=/path/to/problemdata
 ```
 
-The adapter intentionally fails clearly if these paths are missing. It does not
-silently download upstream assets at import time or load time.
+The adapter fails clearly if `RS13PM_DIR` is missing when a problem is loaded.
+The solution and problemdata helpers independently require only their own
+inputs. No upstream assets are downloaded at import time or load time.
 
-Archive locations are runtime availability settings, not benchmark
-`plib_options`. The plugin intentionally declares no library-specific options;
-nonempty `plib_options={"rs13": ...}` mappings are rejected.
+`RS13PM_DIR` is a runtime availability setting. `RS13SOLS_DIR` and
+`RS13_PROBLEMDATA_DIR` are test and maintenance locations. None of them are
+benchmark `plib_options`: the plugin intentionally declares no
+library-specific options, and nonempty `plib_options={"rs13": ...}` mappings
+are rejected.
 
 ## Usage
 
@@ -111,14 +129,14 @@ The user-facing entry points are:
 - `rs13_check_available()`: verifies that `RS13PM_DIR` contains the complete
   official Python archive before a benchmark starts.
 
-Additional maintenance helpers:
+Additional test and maintenance helpers:
 
 - `rs13_load_raw(problem_name)`: loads the objective, starting point, and
   official BAM-driver bounds from one `rs13pm` Python file.
-- `rs13_known_solution(problem_name)`: reads the known solution vector from
-  `rs13sols.zip` extracts.
+- `rs13_known_solution(problem_name)`: reads a known solution test oracle from
+  `rs13sols.zip` extracts; it is not used by `rs13_load`.
 - `rs13_problemdata(problem_name)`: reads official dimension, bounds, and
-  starting point from `problemdata.zip` extracts.
+  starting point from `problemdata.zip` extracts for maintenance audits.
 
 ## Problem Metadata
 
@@ -180,15 +198,32 @@ The adapter does not guess corrections for these. It records status fields in
 
 ## Testing
 
-The CI workflow runs on pushes, pull requests, manual dispatch, and daily at
-07:00 Beijing time. It downloads the official RS13 archives, installs
-OptiProfiler, runs wrapper tests, checks that regenerated metadata is
-committed, and runs the smoke script.
+The main CI workflow runs on pushes, pull requests, manual dispatch, and daily
+at 07:00 Beijing time. It first validates the API-v1 plugin and package build
+without upstream archives. It then downloads `rs13pm` plus the `rs13sols` test
+oracle and validates the runtime wrapper, random sample, fresh installation,
+and smoke path. It does not download `problemdata` or regenerate metadata.
+
+The separate `Upstream Data Audit` workflow runs on a daily schedule and manual
+dispatch only. It downloads all three official archives, runs
+`tests/test_upstream_data_audit.py`, regenerates `probinfo_rs13.csv`, and fails
+visibly if the independent upstream records are unavailable or have changed.
+It does not run on pushes or pull requests and therefore does not make upstream
+website availability a plugin regression signal.
 
 Run the wrapper tests from this repository:
 
 ```bash
-python -m unittest discover -s tests -p 'test_*.py'
+python -m unittest discover -s tests -p 'test_rs13.py'
+python -m unittest discover -s tests -p 'test_plugin_protocol.py'
+```
+
+Run the upstream-data audit after setting all three maintenance inputs:
+
+```bash
+python -m unittest discover -s tests -p 'test_upstream_data_audit.py'
+python scripts/collect_info.py
+git diff --exit-code probinfo_rs13.csv
 ```
 
 Regenerate the metadata table from local official archive extracts:
@@ -207,10 +242,10 @@ python scripts/smoke_rs13.py
 
 When upstream RS13 assets change:
 
-1. download the official archives from the upstream pages;
+1. download the three official maintenance archives from the upstream pages;
 2. set `RS13PM_DIR`, `RS13SOLS_DIR`, and `RS13_PROBLEMDATA_DIR`;
 3. run `python scripts/collect_info.py`;
-4. run the tests;
+4. run the upstream-data audit and the two runtime test commands above;
 5. review any metadata diff before committing.
 
 The repository should stay adapter-only and lightweight. Do not commit

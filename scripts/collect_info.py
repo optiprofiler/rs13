@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import sys
 
 
@@ -8,7 +9,16 @@ sys.path.insert(0, str(ROOT))
 from rs13_tools import rs13_collect_info
 
 
+REQUIRED_INPUTS = ("RS13PM_DIR", "RS13SOLS_DIR", "RS13_PROBLEMDATA_DIR")
+
+
 def main():
+    missing = [name for name in REQUIRED_INPUTS if not os.environ.get(name)]
+    if missing:
+        raise RuntimeError(
+            "RS13 metadata regeneration requires all official inputs; missing "
+            + ", ".join(missing)
+        )
     rows = rs13_collect_info(refresh=True)
     statuses = {}
     for row in rows:

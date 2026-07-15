@@ -17,7 +17,6 @@ from rs13_tools import (
     rs13_known_solution,
     rs13_load_problem,
     rs13_load_raw,
-    rs13_problemdata,
     rs13_select,
     rs13_uses_effective_unconstrained_bounds,
 )
@@ -51,13 +50,16 @@ def _assert_problem_contract(testcase, problem_name):
     testcase.assertTrue(math.isfinite(float(fx1)) or math.isnan(float(fx1)))
 
 
-class RS13Tests(unittest.TestCase):
+def _require_env(*names):
+    missing = [name for name in names if not os.environ.get(name)]
+    if missing:
+        raise unittest.SkipTest(f"Missing RS13 test inputs: {', '.join(missing)}")
+
+
+class RS13RuntimeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        required = ["RS13PM_DIR", "RS13SOLS_DIR", "RS13_PROBLEMDATA_DIR"]
-        missing = [name for name in required if not os.environ.get(name)]
-        if missing:
-            raise unittest.SkipTest(f"Missing RS13 archive env vars: {', '.join(missing)}")
+        _require_env("RS13PM_DIR")
 
     def test_load_raw_branin(self):
         raw = rs13_load_raw("branin")
@@ -67,30 +69,6 @@ class RS13Tests(unittest.TestCase):
         self.assertEqual(raw.xmax.tolist(), [10.0, 15.0])
         self.assertAlmostEqual(raw.objective(raw.x0.tolist()), 24.129964413622268)
 
-    def test_known_solutions_evaluate(self):
-        expected = {
-            "branin": 3.9788736e-01,
-            "camel6": -1.0316285e00,
-            "convex1_10_1": 0.0,
-            "rosenbr": 0.0,
-        }
-        for name, fbest in expected.items():
-            with self.subTest(name=name):
-                raw = rs13_load_raw(name)
-                xbest = rs13_known_solution(name)
-                self.assertEqual(raw.x0.size, xbest.size)
-                self.assertAlmostEqual(raw.objective(xbest.tolist()), fbest, delta=1e-4 * max(1.0, abs(fbest)))
-
-    def test_problemdata_matches_raw_loader(self):
-        for name in ["branin", "camel6", "convex1_10_1", "rosenbr"]:
-            with self.subTest(name=name):
-                raw = rs13_load_raw(name)
-                data = rs13_problemdata(name)
-                np.testing.assert_allclose(data["x0"], raw.x0)
-                np.testing.assert_allclose(data["xmin"], raw.xmin)
-                np.testing.assert_allclose(data["xmax"], raw.xmax)
-                self.assertEqual(data["n"], raw.x0.size)
-
     def test_load_optiprofiler_problem(self):
         problem = rs13_load_problem("camel6")
         self.assertEqual(problem.name, "CAMEL6")
@@ -98,8 +76,6 @@ class RS13Tests(unittest.TestCase):
         self.assertEqual(problem.ptype, "b")
         self.assertEqual(problem.mb, 4)
         self.assertTrue(math.isfinite(problem.fun(problem.x0)))
-        xbest = rs13_known_solution("camel6")
-        self.assertAlmostEqual(problem.fun(xbest), -1.0316285, places=5)
 
     def test_daily_random_small_problem_sample(self):
         seed = int(os.environ.get("OP_RANDOM_SEED", date.today().strftime("%Y%m%d")))
@@ -130,6 +106,33 @@ class RS13Tests(unittest.TestCase):
                 problem = rs13_load_problem(name)
                 self.assertEqual(problem.ptype, "b")
                 self.assertGreater(problem.mb, 0)
+
+
+class RS13KnownSolutionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        _require_env("RS13PM_DIR", "RS13SOLS_DIR")
+
+    def test_known_solutions_evaluate(self):
+        expected = {
+            "branin": 3.9788736e-01,
+            "camel6": -1.0316285e00,
+            "convex1_10_1": 0.0,
+            "rosenbr": 0.0,
+        }
+        for name, fbest in expected.items():
+            with self.subTest(name=name):
+                raw = rs13_load_raw(name)
+                xbest = rs13_known_solution(name)
+                self.assertEqual(raw.x0.size, xbest.size)
+                self.assertAlmostEqual(
+                    raw.objective(xbest.tolist()),
+                    fbest,
+                    delta=1e-4 * max(1.0, abs(fbest)),
+                )
+
+
+class RS13MetadataTests(unittest.TestCase):
 
     def test_select_filters_smoke_problems(self):
         selected = rs13_select({"ptype": "b", "mindim": 1, "maxdim": 10, "maxb": 20})

@@ -480,7 +480,7 @@ def rs13_uses_effective_unconstrained_bounds(problem_name: str) -> bool:
 
 
 def rs13_known_solution(problem_name: str, sols_dir: str | os.PathLike | None = None) -> np.ndarray:
-    """Read the known solution vector from `rs13sols.zip` output."""
+    """Read a known-solution test oracle from `rs13sols.zip` output."""
 
     name = _normalize_problem_name(problem_name)
     directory = _resolve_dir(sols_dir, "RS13SOLS_DIR")
@@ -491,7 +491,7 @@ def rs13_known_solution(problem_name: str, sols_dir: str | os.PathLike | None = 
 
 
 def rs13_problemdata(problem_name: str, problemdata_dir: str | os.PathLike | None = None) -> dict:
-    """Read dimension, bounds, and starting point from `problemdata.zip` output."""
+    """Read independent `problemdata.zip` records for maintenance audits."""
 
     name = _normalize_problem_name(problem_name)
     directory = _resolve_dir(problemdata_dir, "RS13_PROBLEMDATA_DIR")
