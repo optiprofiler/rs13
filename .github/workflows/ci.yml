@@ -48,13 +48,16 @@ jobs:
         run: |
           set -eux
           mkdir -p "$RUNNER_TEMP/rs13"
-          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+          curl -L --fail --connect-timeout 15 --max-time 120 \
+            --retry 5 --retry-all-errors --retry-delay 2 \
             -o "$RUNNER_TEMP/rs13/rs13pm.zip" \
             https://minlp-downloads.nyc3.cdn.digitaloceanspaces.com/testlibs/dfolibs/rs13pm.zip
-          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+          curl -L --fail --connect-timeout 15 --max-time 120 \
+            --retry 5 --retry-all-errors --retry-delay 2 \
             -o "$RUNNER_TEMP/rs13/rs13sols.zip" \
             https://minlp-downloads.nyc3.cdn.digitaloceanspaces.com/testlibs/dfolibs/rs13sols.zip
-          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+          curl -L --fail --connect-timeout 15 --max-time 120 \
+            --retry 5 --retry-all-errors --retry-delay 2 \
             -o "$RUNNER_TEMP/rs13/problemdata.zip" \
             https://sahinidis.coe.gatech.edu/public/problemdata.zip
           unzip -q "$RUNNER_TEMP/rs13/rs13pm.zip" -d "$RUNNER_TEMP/rs13/rs13pm_unzipped"
