@@ -13,3 +13,6 @@ rs13src/
 rs13bam/
 rs13sols/
 problemdata/
+build/
+dist/
+*.egg-info/

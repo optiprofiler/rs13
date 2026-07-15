@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "optiprofiler-rs13"
+version = "0.1.0"
+description = "Experimental OptiProfiler problem-library plugin for RS13"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    {name = "Cunxin Huang", email = "cun-xin.huang@connect.polyu.hk"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: Public Domain",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+    "numpy>=1.17.0",
+    "optiprofiler>=1.4.0",
+]
+
+[project.entry-points."optiprofiler.problem_libraries"]
+rs13 = "optiprofiler_rs13:get_problem_library"
+
+[project.urls]
+homepage = "https://www.optprof.com"
+source = "https://github.com/optiprofiler/rs13"
+upstream = "https://minlp.com/black-box-optimization-test-problems"
+
+[tool.setuptools]
+packages = ["optiprofiler_rs13"]
+package-dir = {"optiprofiler_rs13" = "."}
+include-package-data = false
+
+[tool.setuptools.package-data]
+optiprofiler_rs13 = [
+    "README.md",
+    "probinfo_rs13.csv",
+    "docs/*.md",
+]

@@ -20,6 +20,29 @@ interfaces, BAM input files, known solutions, and executable bundles:
 This repository adds only the OptiProfiler adapter, generated metadata, tests,
 and documentation. It does not vendor the official RS13 source archives.
 
+## Package and Plugin
+
+RS13 is an experimental external problem-library provider. The development
+distribution name is `optiprofiler-rs13`; it installs `optiprofiler_rs13` and
+registers this API-v1 entry point:
+
+```toml
+[project.entry-points."optiprofiler.problem_libraries"]
+rs13 = "optiprofiler_rs13:get_problem_library"
+```
+
+The corresponding OptiProfiler release and this plugin distribution have not
+been published yet. The `0.1.0` value in `pyproject.toml` is build metadata for
+feature-branch wheel and source-distribution tests, not a release announcement.
+RS13 is not an OptiProfiler core submodule and remains external.
+
+For local development against a checked-out API-v1 OptiProfiler core:
+
+```bash
+python -m pip install -e /path/to/optiprofiler
+python -m pip install -e . --no-deps --no-build-isolation
+```
+
 ## Contents
 
 - `rs13_tools.py`: public OptiProfiler adapter entry points and helper loaders.
@@ -54,6 +77,10 @@ export RS13_PROBLEMDATA_DIR=/path/to/problemdata
 The adapter intentionally fails clearly if these paths are missing. It does not
 silently download upstream assets at import time or load time.
 
+Archive locations are runtime availability settings, not benchmark
+`plib_options`. The plugin intentionally declares no library-specific options;
+nonempty `plib_options={"rs13": ...}` mappings are rejected.
+
 ## Usage
 
 ```python
@@ -81,6 +108,8 @@ The user-facing entry points are:
   `maxb`, `mincon`, `maxcon`, and `excludelist`.
 - `rs13_collect_info(...)`: reads or regenerates the committed
   `probinfo_rs13.csv` table.
+- `rs13_check_available()`: verifies that `RS13PM_DIR` contains the complete
+  official Python archive before a benchmark starts.
 
 Additional maintenance helpers:
 

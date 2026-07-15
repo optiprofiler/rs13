@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Mapping
 import csv
 import math
 import os
@@ -254,7 +255,53 @@ RS13_EFFECTIVE_UNCONSTRAINED_NAMES = frozenset(
 )
 
 
-def rs13_load(problem_name: str):
+def rs13_check_available():
+    """Raise an informative error unless the official Python archive is ready."""
+
+    try:
+        source_dir = _resolve_dir(None, "RS13PM_DIR")
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "RS13 is unavailable. Download and extract the official rs13pm.zip "
+            "archive, then set RS13PM_DIR to the directory containing its "
+            "Python problem files."
+        ) from exc
+
+    expected_files = {
+        row["source_file"]
+        for row in rs13_collect_info()
+        if row.get("source_file")
+    }
+    missing = sorted(
+        filename for filename in expected_files
+        if not (source_dir / filename).is_file()
+    )
+    if missing:
+        preview = ", ".join(missing[:3])
+        suffix = "" if len(missing) <= 3 else f" and {len(missing) - 3} more"
+        raise RuntimeError(
+            "RS13PM_DIR does not contain the complete official rs13pm archive; "
+            f"missing {preview}{suffix}."
+        )
+
+
+def _validate_library_options(library_options):
+    """Normalize RS13's intentionally empty library-options mapping."""
+
+    if library_options is None:
+        return {}
+    if not isinstance(library_options, Mapping):
+        raise TypeError("RS13 library options must be a mapping.")
+    options = dict(library_options)
+    if options:
+        raise ValueError(
+            "RS13 does not define library-specific options; configure the "
+            "official archive through RS13PM_DIR instead."
+        )
+    return {}
+
+
+def rs13_load(problem_name: str, library_options=None):
     """
     Load one RS13 problem as an OptiProfiler `Problem`.
 
@@ -264,10 +311,11 @@ def rs13_load(problem_name: str):
     ``RS13PM_DIR`` or an explicit source path.
     """
 
+    _validate_library_options(library_options)
     return rs13_load_problem(problem_name)
 
 
-def rs13_select(options: dict | None = None) -> list[str]:
+def rs13_select(options: dict | None = None, library_options=None) -> list[str]:
     """
     Select RS13 problems using OptiProfiler's standard filters.
 
@@ -279,6 +327,7 @@ def rs13_select(options: dict | None = None) -> list[str]:
     updating the upstream RS13 archives.
     """
 
+    _validate_library_options(library_options)
     options = dict(options or {})
     defaults = {
         "ptype": "ubln",
