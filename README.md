@@ -102,7 +102,7 @@ are rejected.
 ## Usage
 
 ```python
-from rs13_tools import rs13_load, rs13_select
+from optiprofiler_rs13 import rs13_load, rs13_select
 
 names = rs13_select({"ptype": "u", "maxdim": 10})
 problem = rs13_load(names[0])
@@ -112,8 +112,48 @@ print(problem.name, problem.ptype, problem.fun(problem.x0))
 In OptiProfiler, use this adapter as the problem library `rs13`, for example:
 
 ```python
-benchmark(solvers, plibs=["rs13"], custom_problem_libs_path="/path/to/problem_libs")
+from optiprofiler import benchmark
+
+benchmark(solvers, plibs=["rs13"])
 ```
+
+An installed plugin needs no filesystem path. Discovery also reads entry-point
+metadata without loading the upstream archive:
+
+```python
+from optiprofiler import list_problem_libraries
+
+assert "rs13" in list_problem_libraries()
+```
+
+## Update and Uninstall
+
+Keep two update operations separate:
+
+1. update the unpublished adapter on its compatible feature branch and
+   reinstall it;
+2. update the official RS13 archives independently and point the corresponding
+   environment variables at the reviewed extracts.
+
+```bash
+git pull --ff-only
+python -m pip install -e . --no-deps --no-build-isolation
+```
+
+The tested adapter commit is recorded by the OptiProfiler core
+`problem_libraries.lock`. Updating this repository does not download or alter
+`rs13pm`, `rs13sols`, or `problemdata`.
+
+Remove only the experimental adapter and its entry point with:
+
+```bash
+python -m pip uninstall optiprofiler-rs13
+```
+
+This preserves `RS13PM_DIR`, `RS13SOLS_DIR`, `RS13_PROBLEMDATA_DIR`, extracted
+upstream files, executables, maintenance inputs, caches, and benchmark output.
+Removing the OptiProfiler core also leaves the adapter and upstream inputs in
+place; the adapter remains unusable until a compatible core is reinstalled.
 
 ## Public API
 
