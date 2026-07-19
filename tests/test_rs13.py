@@ -5,6 +5,7 @@ import os
 import random
 import sys
 import unittest
+from unittest import mock
 
 import numpy as np
 
@@ -13,6 +14,8 @@ sys.path.insert(0, str(op_root / "optiprofiler" / "python"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from rs13_tools import (
+    VENDORED_RS13PM_DIR,
+    rs13_check_available,
     rs13_collect_info,
     rs13_known_solution,
     rs13_load_problem,
@@ -57,9 +60,20 @@ def _require_env(*names):
 
 
 class RS13RuntimeTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        _require_env("RS13PM_DIR")
+    def test_bundled_runtime_is_complete_without_environment(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            rs13_check_available()
+            source_files = list(VENDORED_RS13PM_DIR.glob("*.py"))
+            self.assertEqual(len(source_files), 502)
+            self.assertEqual(
+                {path.name for path in source_files},
+                {row["source_file"] for row in rs13_collect_info()},
+            )
+
+    def test_explicit_source_override_takes_precedence(self):
+        with mock.patch.dict(os.environ, {"RS13PM_DIR": "/missing/rs13pm"}):
+            raw = rs13_load_raw("branin", source_dir=VENDORED_RS13PM_DIR)
+        self.assertEqual(raw.source_path.parent, VENDORED_RS13PM_DIR.resolve())
 
     def test_load_raw_branin(self):
         raw = rs13_load_raw("branin")
@@ -111,7 +125,7 @@ class RS13RuntimeTests(unittest.TestCase):
 class RS13KnownSolutionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        _require_env("RS13PM_DIR", "RS13SOLS_DIR")
+        _require_env("RS13SOLS_DIR")
 
     def test_known_solutions_evaluate(self):
         expected = {

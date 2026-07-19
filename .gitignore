@@ -4,7 +4,7 @@ __pycache__/
 .DS_Store
 out/
 *.zip
-rs13pm/
+/rs13pm/
 rs13pf/
 rs13c/
 rs13f/

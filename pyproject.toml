@@ -45,6 +45,8 @@ include-package-data = false
 [tool.setuptools.package-data]
 optiprofiler_rs13 = [
     "README.md",
+    "THIRD_PARTY_NOTICES.md",
     "probinfo_rs13.csv",
     "docs/*.md",
+    "runtime/rs13pm/*.py",
 ]

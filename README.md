@@ -17,8 +17,10 @@ interfaces, BAM input files, known solutions, and executable bundles:
 
 - https://minlp.com/black-box-optimization-test-problems
 
-This repository adds only the OptiProfiler adapter, generated metadata, tests,
-and documentation. It does not vendor the official RS13 source archives.
+This repository packages the OptiProfiler adapter together with the 502 Python
+problem drivers from the official `rs13pm.zip` archive. The installed adapter
+therefore loads ordinary RS13 problems without a separate runtime download.
+Known-solution and upstream-audit archives remain external maintenance inputs.
 
 ## Package and Plugin
 
@@ -46,9 +48,15 @@ python -m pip install -e . --no-deps --no-build-isolation
 ## Contents
 
 - `rs13_tools.py`: public OptiProfiler adapter entry points and helper loaders.
+- `runtime/rs13pm/`: the 502 vendored official Python problem drivers used by
+  `rs13_load`.
 - `probinfo_rs13.csv`: committed selection metadata used by `rs13_select`.
+- `THIRD_PARTY_NOTICES.md`: exact upstream archive provenance, checksum,
+  permission record, and citation.
 - `scripts/collect_info.py`: regenerates `probinfo_rs13.csv` from local
   official archive extracts.
+- `scripts/check_distribution.py`: verifies wheel/sdist runtime contents and
+  excludes solution and audit data.
 - `scripts/smoke_rs13.py`: small SciPy smoke runner for local sanity checks.
 - `tests/test_rs13.py`: runtime wrapper tests for loading, selecting, committed
   metadata, known-solution evaluation, and the RS13 bound policy.
@@ -59,45 +67,44 @@ python -m pip install -e . --no-deps --no-build-isolation
 - `docs/upstream_data_notes.md`: evidence notes for issues that can be reported
   upstream.
 
-## Upstream Inputs
+## Runtime and Maintenance Inputs
 
-The adapter runtime has one required upstream input:
+The distribution includes the 502 official Python drivers needed by
+`rs13_load`. `rs13_check_available` verifies this bundled runtime, so ordinary
+users do not download `rs13pm.zip` or set `RS13PM_DIR`. `rs13_select` reads the
+committed `probinfo_rs13.csv` table.
 
-- `rs13pm.zip`: Python files using BAM's SciPy-style API. `rs13_load` and
-  `rs13_check_available` require its extracted directory through
-  `RS13PM_DIR`.
+Maintainers can explicitly test a reviewed upstream extract instead of the
+bundled runtime by setting `RS13PM_DIR`. The lower-level `rs13_load_raw` and
+`rs13_load_problem` helpers also accept an explicit `source_dir`. Resolution
+order is explicit `source_dir`, then `RS13PM_DIR`, then the bundled runtime.
 
-`rs13_select` reads the committed `probinfo_rs13.csv` table and does not need
-an extracted archive. The API-v1 factory also does not download or load any
-upstream data.
-
-Two additional archives are maintenance and test inputs, not runtime or
-API-v1 protocol dependencies:
+Two additional archives are test and maintenance inputs, not runtime,
+distribution, or API-v1 protocol dependencies:
 
 - `rs13sols.zip`: known solution vectors used as a test oracle and when
   regenerating `fbest` metadata.
 - `problemdata.zip`: independent dimension, bound, and starting-point records
   used only by the upstream-data audit and metadata regeneration.
 
-Set the archive locations with environment variables:
+Maintainers can set these locations with environment variables:
 
 ```bash
-export RS13PM_DIR=/path/to/rs13pm
+# Optional override for reviewing a new rs13pm extract:
+export RS13PM_DIR=/path/to/reviewed/rs13pm
 # Optional test oracle:
 export RS13SOLS_DIR=/path/to/rs13sols
 # Maintenance audit only:
 export RS13_PROBLEMDATA_DIR=/path/to/problemdata
 ```
 
-The adapter fails clearly if `RS13PM_DIR` is missing when a problem is loaded.
 The solution and problemdata helpers independently require only their own
 inputs. No upstream assets are downloaded at import time or load time.
 
-`RS13PM_DIR` is a runtime availability setting. `RS13SOLS_DIR` and
-`RS13_PROBLEMDATA_DIR` are test and maintenance locations. None of them are
-benchmark `plib_options`: the plugin intentionally declares no
-library-specific options, and nonempty `plib_options={"rs13": ...}` mappings
-are rejected.
+`RS13PM_DIR` is a maintainer override. `RS13SOLS_DIR` and
+`RS13_PROBLEMDATA_DIR` are test and maintenance locations. None is a benchmark
+`plib_option`: the plugin intentionally declares no library-specific options,
+and nonempty `plib_options={"rs13": ...}` mappings are rejected.
 
 ## Usage
 
@@ -130,10 +137,10 @@ assert "rs13" in list_problem_libraries()
 
 Keep two update operations separate:
 
-1. update the unpublished adapter on its compatible feature branch and
-   reinstall it;
-2. update the official RS13 archives independently and point the corresponding
-   environment variables at the reviewed extracts.
+1. update the unpublished adapter, its reviewed vendored `rs13pm` snapshot,
+   and its provenance record on the compatible feature branch;
+2. update the external `rs13sols` and `problemdata` maintenance inputs only
+   when running the corresponding checks.
 
 ```bash
 git pull --ff-only
@@ -141,8 +148,10 @@ python -m pip install -e . --no-deps --no-build-isolation
 ```
 
 The tested adapter commit is recorded by the OptiProfiler core
-`problem_libraries.lock`. Updating this repository does not download or alter
-`rs13pm`, `rs13sols`, or `problemdata`.
+`problem_libraries.lock`. Installing a newer adapter changes the bundled
+runtime snapshot together with the wrapper. It does not download or alter
+external `rs13sols`, `problemdata`, maintainer override directories, or
+benchmark results.
 
 Remove only the experimental adapter and its entry point with:
 
@@ -150,10 +159,12 @@ Remove only the experimental adapter and its entry point with:
 python -m pip uninstall optiprofiler-rs13
 ```
 
-This preserves `RS13PM_DIR`, `RS13SOLS_DIR`, `RS13_PROBLEMDATA_DIR`, extracted
-upstream files, executables, maintenance inputs, caches, and benchmark output.
-Removing the OptiProfiler core also leaves the adapter and upstream inputs in
-place; the adapter remains unusable until a compatible core is reinstalled.
+This removes the adapter, entry point, bundled runtime, and bundled metadata.
+It preserves any separately managed `RS13PM_DIR`, `RS13SOLS_DIR`,
+`RS13_PROBLEMDATA_DIR`, maintenance inputs, caches, and benchmark output.
+Removing the OptiProfiler core leaves this independent adapter and its bundled
+runtime installed; the adapter remains unusable until a compatible core is
+reinstalled.
 
 ## Public API
 
@@ -166,8 +177,8 @@ The user-facing entry points are:
   `maxb`, `mincon`, `maxcon`, and `excludelist`.
 - `rs13_collect_info(...)`: reads or regenerates the committed
   `probinfo_rs13.csv` table.
-- `rs13_check_available()`: verifies that `RS13PM_DIR` contains the complete
-  official Python archive before a benchmark starts.
+- `rs13_check_available()`: verifies that the selected bundled or override
+  runtime contains all 502 official Python drivers before a benchmark starts.
 
 Additional test and maintenance helpers:
 
@@ -239,10 +250,12 @@ The adapter does not guess corrections for these. It records status fields in
 ## Testing
 
 The main CI workflow runs on pushes, pull requests, manual dispatch, and daily
-at 07:00 Beijing time. It first validates the API-v1 plugin and package build
-without upstream archives. It then downloads `rs13pm` plus the `rs13sols` test
-oracle and validates the runtime wrapper, random sample, fresh installation,
-and smoke path. It does not download `problemdata` or regenerate metadata.
+at 07:00 Beijing time. It validates the API-v1 plugin, builds both distribution
+formats, confirms that both contain exactly 502 runtime drivers, and exercises
+the source checkout and a fresh wheel installation with every `RS13*`
+environment variable unset. It downloads only the `rs13sols` test oracle for
+known-solution and solver smoke checks. It does not download `rs13pm` or
+`problemdata`, or regenerate metadata.
 
 The separate `Upstream Data Audit` workflow runs on a daily schedule and manual
 dispatch only. It downloads all three official archives, runs
@@ -282,23 +295,30 @@ python scripts/smoke_rs13.py
 
 When upstream RS13 assets change:
 
-1. download the three official maintenance archives from the upstream pages;
-2. set `RS13PM_DIR`, `RS13SOLS_DIR`, and `RS13_PROBLEMDATA_DIR`;
-3. run `python scripts/collect_info.py`;
-4. run the upstream-data audit and the two runtime test commands above;
-5. review any metadata diff before committing.
+1. download `rs13pm.zip` from the documented upstream URL and verify the
+   reviewed archive checksum;
+2. replace `runtime/rs13pm/` with exactly its 502 Python drivers and update
+   `THIRD_PARTY_NOTICES.md`;
+3. keep separate extracts of `rs13sols` and `problemdata`, then set
+   `RS13PM_DIR=runtime/rs13pm`, `RS13SOLS_DIR`, and
+   `RS13_PROBLEMDATA_DIR`;
+4. run `python scripts/collect_info.py`, the upstream-data audit, runtime tests,
+   build, and `python scripts/check_distribution.py`;
+5. review source, provenance, metadata, and archive-content diffs before
+   committing.
 
-The repository should stay adapter-only and lightweight. Do not commit
-downloaded upstream archives, extracted RS13 source trees, BAM executables,
-benchmark output directories, or local cache/build artifacts.
+Do not commit archive ZIPs, `rs13sols`, `problemdata`, BAM executables,
+benchmark outputs, or local cache/build artifacts.
 
 ## Provenance and Citation
 
-The checked archives did not include a standalone `LICENSE`, `LICENCE`,
-`COPYING`, or `NOTICE` file, and sampled Python/C/Fortran/BAM/problemdata files
-did not carry an open-source license header. Professor Nikolaos V. Sahinidis
-confirmed by email on 2026-06-27 that the RS13 collection is in the open domain
-and may be used in the OptiProfiler integration model described to him.
+The vendored `rs13pm.zip` archive did not include a standalone `LICENSE`,
+`LICENCE`, `COPYING`, or `NOTICE` file, and its Python files did not carry an
+open-source license header. Professor Nikolaos V. Sahinidis confirmed by email
+on 2026-06-27 that the RS13 collection is in the open domain and may be used in
+the OptiProfiler integration model described to him. See
+`THIRD_PARTY_NOTICES.md` for the exact vendored source URL, retrieval date,
+archive checksum, and distribution boundary.
 
 Please cite the original paper and link to the upstream pages when using RS13
 through this adapter:

@@ -51,12 +51,17 @@ class RS13PluginProtocolTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             _resolve_problem_library_options(plugin, {"source_dir": "/tmp/rs13"})
 
-    def test_factory_does_not_require_or_download_the_archive(self):
+    def test_factory_uses_bundled_runtime_without_environment(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             plugin = optiprofiler_rs13.get_problem_library()
             self.assertEqual(plugin.name, "rs13")
-            with self.assertRaisesRegex(RuntimeError, "RS13 is unavailable"):
-                plugin.check_available()
+            plugin.check_available()
+            problem = plugin.load("branin", {})
+            self.assertEqual(problem.n, 2)
+            self.assertAlmostEqual(
+                float(problem.fun(problem.x0)),
+                24.129964413622268,
+            )
 
     def test_entry_point_reference_loads_and_uses_empty_options(self):
         reference = ProblemLibraryRef(

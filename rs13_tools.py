@@ -18,6 +18,7 @@ except ImportError:  # pragma: no cover - exercised by direct local checks.
 
 CURRENT_DIR = Path(__file__).resolve().parent
 PROBINFO_PATH = CURRENT_DIR / "probinfo_rs13.csv"
+VENDORED_RS13PM_DIR = CURRENT_DIR / "runtime" / "rs13pm"
 
 
 class RS13ProblemSource:
@@ -256,15 +257,15 @@ RS13_EFFECTIVE_UNCONSTRAINED_NAMES = frozenset(
 
 
 def rs13_check_available():
-    """Raise an informative error unless the official Python archive is ready."""
+    """Raise an informative error unless the bundled or override source is ready."""
 
     try:
-        source_dir = _resolve_dir(None, "RS13PM_DIR")
+        source_dir = _resolve_source_dir()
     except FileNotFoundError as exc:
         raise RuntimeError(
-            "RS13 is unavailable. Download and extract the official rs13pm.zip "
-            "archive, then set RS13PM_DIR to the directory containing its "
-            "Python problem files."
+            "RS13 is unavailable because the selected runtime is missing. "
+            "Reinstall optiprofiler-rs13, or correct the maintainer override "
+            "in RS13PM_DIR."
         ) from exc
 
     expected_files = {
@@ -280,7 +281,8 @@ def rs13_check_available():
         preview = ", ".join(missing[:3])
         suffix = "" if len(missing) <= 3 else f" and {len(missing) - 3} more"
         raise RuntimeError(
-            "RS13PM_DIR does not contain the complete official rs13pm archive; "
+            "The selected RS13 runtime does not contain all 502 official "
+            "rs13pm problem files; "
             f"missing {preview}{suffix}."
         )
 
@@ -296,7 +298,7 @@ def _validate_library_options(library_options):
     if options:
         raise ValueError(
             "RS13 does not define library-specific options; configure the "
-            "official archive through RS13PM_DIR instead."
+            "optional maintainer source override through RS13PM_DIR instead."
         )
     return {}
 
@@ -306,9 +308,9 @@ def rs13_load(problem_name: str, library_options=None):
     Load one RS13 problem as an OptiProfiler `Problem`.
 
     This is the public loader used by OptiProfiler when the library is exposed
-    as ``plibs=["rs13"]``. It requires the official RS13 Python archive
-    (`rs13pm.zip`) to be extracted locally and discoverable through
-    ``RS13PM_DIR`` or an explicit source path.
+    as ``plibs=["rs13"]``. The official RS13 Python problem sources are
+    bundled with this adapter. Maintainers can override them through
+    ``RS13PM_DIR`` when reviewing a new upstream archive.
     """
 
     _validate_library_options(library_options)
@@ -515,7 +517,7 @@ def _build_probinfo(
     sols_dir: str | os.PathLike | None = None,
     problemdata_dir: str | os.PathLike | None = None,
 ) -> list[dict[str, str]]:
-    source_path = _resolve_dir(source_dir, "RS13PM_DIR")
+    source_path = _resolve_source_dir(source_dir)
     names = sorted(path.stem for path in source_path.glob("*.py") if not path.name.startswith("."))
     rows = []
     for name in names:
@@ -673,11 +675,23 @@ def _contains_name(node: ast.AST, name: str) -> bool:
 
 
 def _problem_script_path(problem_name: str, source_dir: str | os.PathLike | None) -> Path:
-    directory = _resolve_dir(source_dir, "RS13PM_DIR")
+    directory = _resolve_source_dir(source_dir)
     path = directory / f"{problem_name}.py"
     if not path.exists():
         raise FileNotFoundError(f"RS13 Python problem file not found: {path}")
     return path
+
+
+def _resolve_source_dir(value: str | os.PathLike | None = None) -> Path:
+    """Resolve an explicit/upstream override before the bundled RS13 runtime."""
+
+    raw = value if value is not None else os.environ.get("RS13PM_DIR")
+    if raw is None:
+        path = VENDORED_RS13PM_DIR.resolve()
+        if not path.is_dir():
+            raise FileNotFoundError(f"Bundled RS13 runtime directory is missing: {path}")
+        return path
+    return _resolve_dir(raw, "RS13PM_DIR")
 
 
 def _resolve_dir(value: str | os.PathLike | None, env_name: str) -> Path:

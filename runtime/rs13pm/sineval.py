@@ -1,0 +1,28 @@
+import bam
+import math
+
+def objective(x):
+    f = 0.0
+    v = [0.0] * (3)
+    v[0] = math.sin(x[0])
+    v[1] = x[1] - v[0]
+    v[0] = v[1] * v[1]
+    v[1] = 1000. * v[0]
+    v[0] = x[0] * x[0]
+    v[2] = 0.25 * v[0]
+    v[0] = v[1] + v[2]
+    f = v[0]
+    return f
+
+
+xmin = [-10000, -10000]
+xmax = [10000, 10000]
+x0 = [0, 0]
+
+res = bam.minimize(objective, x0=x0,
+                   bounds=list(zip(xmin, xmax)),
+                   options={"tracefname": "sineval.trc"})
+
+print("Status = %d" % res.status)
+print("Best f = %.15e" % res.fun)
+print("Best x = " + "".join("%.15e " % xi for xi in res.x))

@@ -51,41 +51,27 @@ jobs:
         run: python -m build
 
       - name: Check distribution contents
+        run: python scripts/check_distribution.py
+
+      - name: Run bundled runtime tests without RS13 environment variables
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          from zipfile import ZipFile
+          env -u RS13PM_DIR -u RS13SOLS_DIR -u RS13_PROBLEMDATA_DIR \
+            python -m unittest discover -s tests -p 'test_rs13.py'
 
-          wheel = next(Path("dist").glob("*.whl"))
-          with ZipFile(wheel) as archive:
-              names = archive.namelist()
-          assert any(name.endswith("probinfo_rs13.csv") for name in names)
-          forbidden = ("rs13pm/", "rs13sols/", "problemdata/", ".zip")
-          assert not any(part in name for name in names for part in forbidden)
-          PY
-
-      - name: Download RS13 runtime and solution oracle
+      - name: Download RS13 solution oracle
         run: |
           set -eux
           mkdir -p "$RUNNER_TEMP/rs13"
           curl -L --fail --connect-timeout 15 --max-time 120 \
             --retry 5 --retry-all-errors --retry-delay 2 \
-            -o "$RUNNER_TEMP/rs13/rs13pm.zip" \
-            https://minlp-downloads.nyc3.cdn.digitaloceanspaces.com/testlibs/dfolibs/rs13pm.zip
-          curl -L --fail --connect-timeout 15 --max-time 120 \
-            --retry 5 --retry-all-errors --retry-delay 2 \
             -o "$RUNNER_TEMP/rs13/rs13sols.zip" \
             https://minlp-downloads.nyc3.cdn.digitaloceanspaces.com/testlibs/dfolibs/rs13sols.zip
-          unzip -q "$RUNNER_TEMP/rs13/rs13pm.zip" -d "$RUNNER_TEMP/rs13/rs13pm_unzipped"
           unzip -q "$RUNNER_TEMP/rs13/rs13sols.zip" -d "$RUNNER_TEMP/rs13/rs13sols_unzipped"
-          rs13pm_dir=$(find "$RUNNER_TEMP/rs13/rs13pm_unzipped" -type f -name branin.py -exec dirname {} \; -quit)
           rs13sols_dir=$(find "$RUNNER_TEMP/rs13/rs13sols_unzipped" -type f -name branin.sol -exec dirname {} \; -quit)
-          test -n "$rs13pm_dir"
           test -n "$rs13sols_dir"
-          echo "RS13PM_DIR=$rs13pm_dir" >> "$GITHUB_ENV"
           echo "RS13SOLS_DIR=$rs13sols_dir" >> "$GITHUB_ENV"
 
-      - name: Run runtime and solution-oracle tests
+      - name: Run solution-oracle tests
         run: python -m unittest discover -s tests -p 'test_rs13.py'
 
       - name: Fresh installed plugin smoke
@@ -95,7 +81,7 @@ jobs:
           python -m pip install --no-deps "$wheel"
           tmpdir="$(mktemp -d)"
           cd "$tmpdir"
-          python - <<'PY'
+          env -u RS13PM_DIR -u RS13SOLS_DIR -u RS13_PROBLEMDATA_DIR python - <<'PY'
           from optiprofiler.problem_libraries import (
               list_problem_libraries,
               load_problem_library,
