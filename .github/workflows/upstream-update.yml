@@ -1,0 +1,92 @@
+name: Check RS13 Upstream
+
+on:
+  schedule:
+    # 07:45 Beijing time, after the daily pinned-snapshot CI.
+    - cron: "45 23 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download and inspect the official runtime candidate
+        id: audit
+        run: |
+          set -euo pipefail
+          curl -L --fail --connect-timeout 15 --max-time 120 \
+            --retry 5 --retry-all-errors --retry-delay 2 \
+            -o "$RUNNER_TEMP/rs13pm.zip" \
+            https://minlp-downloads.nyc3.cdn.digitaloceanspaces.com/testlibs/dfolibs/rs13pm.zip
+          python scripts/check_upstream_candidate.py "$RUNNER_TEMP/rs13pm.zip" \
+            --json upstream-candidate.json \
+            --markdown upstream-update-report.md
+          changed="$(python -c 'import json; print(str(json.load(open("upstream-candidate.json"))["changed"]).lower())')"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Upload candidate report
+        uses: actions/upload-artifact@v4
+        with:
+          name: rs13-upstream-candidate-report
+          path: |
+            upstream-candidate.json
+            upstream-update-report.md
+
+      - name: Create or update the upstream notification
+        uses: actions/github-script@v7
+        env:
+          UPDATE_AVAILABLE: ${{ steps.audit.outputs.changed }}
+        with:
+          script: |
+            const fs = require("fs");
+            const title = "Upstream update available: RS13 runtime archive";
+            const marker = "<!-- optiprofiler-upstream-update:rs13 -->";
+            const report = fs.readFileSync("upstream-update-report.md", "utf8");
+            const { owner, repo } = context.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: "open", per_page: 100
+            });
+            const existing = issues.find(
+              issue => !issue.pull_request && issue.title === title && issue.body?.includes(marker)
+            );
+
+            if (process.env.UPDATE_AVAILABLE === "true") {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: "upstream-update" });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  owner, repo, name: "upstream-update", color: "FBCA04",
+                  description: "A newer upstream snapshot requires maintainer review"
+                });
+              }
+              const body = `${marker}\n${report}\n\nThe vendored runtime and OptiProfiler locks remain unchanged.`;
+              if (existing) {
+                await github.rest.issues.update({
+                  owner, repo, issue_number: existing.number, body, labels: ["upstream-update"]
+                });
+              } else {
+                await github.rest.issues.create({
+                  owner, repo, title, body, labels: ["upstream-update"]
+                });
+              }
+            } else if (existing) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number,
+                body: "The official runtime archive now matches the pinned snapshot. Closing this notification."
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: existing.number, state: "closed"
+              });
+            }

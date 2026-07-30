@@ -46,6 +46,7 @@ include-package-data = false
 optiprofiler_rs13 = [
     "README.md",
     "THIRD_PARTY_NOTICES.md",
+    "UPSTREAM_SNAPSHOT.json",
     "probinfo_rs13.csv",
     "docs/*.md",
     "runtime/rs13pm/*.py",

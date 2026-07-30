@@ -1,0 +1,21 @@
+{
+  "runtime": {
+    "name": "rs13pm",
+    "url": "https://minlp-downloads.nyc3.cdn.digitaloceanspaces.com/testlibs/dfolibs/rs13pm.zip",
+    "sha256": "6ffd60081bf376ea25549f4c5a1a4e24721d44a14efac8ec09df1d7308031c31",
+    "retrieved": "2026-07-19",
+    "python_problem_files": 502,
+    "files_with_x0": 502
+  },
+  "solution_oracle": {
+    "name": "rs13sols",
+    "url": "https://minlp-downloads.nyc3.cdn.digitaloceanspaces.com/testlibs/dfolibs/rs13sols.zip",
+    "sha256": "81d72d6aeb0e6ca38040f51cead3225b3eed6040dc9307fbe49b566b73a4ab72"
+  },
+  "policy": {
+    "strategy": "pinned-snapshot-with-manual-promotion",
+    "runtime_is_vendored": true,
+    "solution_oracle_is_vendored": false,
+    "problemdata_is_vendored": false
+  }
+}

@@ -66,6 +66,8 @@ jobs:
             --retry 5 --retry-all-errors --retry-delay 2 \
             -o "$RUNNER_TEMP/rs13/rs13sols.zip" \
             https://minlp-downloads.nyc3.cdn.digitaloceanspaces.com/testlibs/dfolibs/rs13sols.zip
+          echo "81d72d6aeb0e6ca38040f51cead3225b3eed6040dc9307fbe49b566b73a4ab72  $RUNNER_TEMP/rs13/rs13sols.zip" \
+            | sha256sum --check -
           unzip -q "$RUNNER_TEMP/rs13/rs13sols.zip" -d "$RUNNER_TEMP/rs13/rs13sols_unzipped"
           rs13sols_dir=$(find "$RUNNER_TEMP/rs13/rs13sols_unzipped" -type f -name branin.sol -exec dirname {} \; -quit)
           test -n "$rs13sols_dir"

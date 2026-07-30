@@ -1,9 +1,6 @@
 name: Upstream Data Audit
 
 on:
-  schedule:
-    # 07:20 Beijing time, after the daily runtime CI.
-    - cron: "20 23 * * *"
   workflow_dispatch:
 
 jobs:

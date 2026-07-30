@@ -53,6 +53,8 @@ python -m pip install -e . --no-deps --no-build-isolation
 - `probinfo_rs13.csv`: committed selection metadata used by `rs13_select`.
 - `THIRD_PARTY_NOTICES.md`: exact upstream archive provenance, checksum,
   permission record, and citation.
+- `UPSTREAM_SNAPSHOT.json`: machine-readable runtime and maintenance-oracle
+  checksums plus the manual-promotion policy.
 - `scripts/collect_info.py`: regenerates `probinfo_rs13.csv` from local
   official archive extracts.
 - `scripts/check_distribution.py`: verifies wheel/sdist runtime contents and
@@ -257,12 +259,18 @@ environment variable unset. It downloads only the `rs13sols` test oracle for
 known-solution and solver smoke checks. It does not download `rs13pm` or
 `problemdata`, or regenerate metadata.
 
-The separate `Upstream Data Audit` workflow runs on a daily schedule and manual
-dispatch only. It downloads all three official archives, runs
+`Check RS13 Upstream` runs daily after the pinned-snapshot CI. It compares the
+official `rs13pm.zip` checksum and basic adapter requirements, including one
+`x0` definition per problem, with `UPSTREAM_SNAPSHOT.json`. A changed archive
+creates or updates an `upstream-update` issue and uploads a report; it never
+replaces `runtime/rs13pm/`.
+
+The separate manual `Upstream Data Audit` workflow downloads all three official
+archives, runs
 `tests/test_upstream_data_audit.py`, regenerates `probinfo_rs13.csv`, and fails
 visibly if the independent upstream records are unavailable or have changed.
-It does not run on pushes or pull requests and therefore does not make upstream
-website availability a plugin regression signal.
+It is used only while reviewing a candidate and does not make upstream website
+availability a plugin regression signal.
 
 Run the wrapper tests from this repository:
 
