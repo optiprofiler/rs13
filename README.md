@@ -36,13 +36,16 @@ rs13 = "optiprofiler_rs13:get_problem_library"
 The corresponding OptiProfiler release and this plugin distribution have not
 been published yet. The `0.1.0` value in `pyproject.toml` is build metadata for
 feature-branch wheel and source-distribution tests, not a release announcement.
-RS13 is not an OptiProfiler core submodule and remains external.
+The protocol-enabled OptiProfiler development branch currently reports version
+`1.3.4`; the published `v1.3.4` tag predates the plugin protocol, so use the
+checked-out `python` branch until a protocol-enabled core is released. RS13 is
+not an OptiProfiler core submodule and remains external.
 
 For local development against a checked-out API-v1 OptiProfiler core:
 
 ```bash
 python -m pip install -e /path/to/optiprofiler
-python -m pip install -e . --no-deps --no-build-isolation
+python -m pip install -e . --no-build-isolation
 ```
 
 ## Contents
@@ -146,7 +149,7 @@ Keep two update operations separate:
 
 ```bash
 git pull --ff-only
-python -m pip install -e . --no-deps --no-build-isolation
+python -m pip install -e . --no-build-isolation
 ```
 
 The tested adapter commit is recorded by the OptiProfiler core
