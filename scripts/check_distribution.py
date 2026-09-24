@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import tarfile
 from zipfile import ZipFile
 
@@ -31,6 +32,8 @@ def _check_archive(path: Path) -> None:
         "/probinfo_rs13.csv",
         "/THIRD_PARTY_NOTICES.md",
         "/UPSTREAM_SNAPSHOT.json",
+        "/references.json",
+        "/rs13_reference.py",
         "/runtime/rs13pm/branin.py",
         "/runtime/rs13pm/rosenbr.py",
     )
@@ -43,6 +46,21 @@ def _check_archive(path: Path) -> None:
         normalized = f"/{name}"
         if any(token in normalized for token in forbidden):
             raise AssertionError(f"{path.name} includes forbidden maintenance data: {name}")
+
+    member = next(name for name in names if name.endswith("/references.json"))
+    if path.suffix == ".whl":
+        with ZipFile(path) as archive:
+            catalog = json.loads(archive.read(member))
+    else:
+        with tarfile.open(path, "r:gz") as archive:
+            catalog = json.load(archive.extractfile(member))
+    if catalog["schema"] != "rs13-best-known/1" or len(catalog["records"]) != 500:
+        raise AssertionError(f"{path.name}: unexpected reference catalog")
+    for entry in catalog["records"].values():
+        if set(entry) != {"dimension", "problem_sha256", "bounds_sha256", "solution_sha256", "reference"}:
+            raise AssertionError(f"{path.name}: unexpected reference data")
+        if set(entry["reference"]) != {"merit", "kind", "source", "mapping"}:
+            raise AssertionError(f"{path.name}: reference must contain scalars/provenance, not points")
 
 
 def main() -> None:

@@ -1,5 +1,8 @@
 # RS13 Adapter
 
+**V2 candidate:** See [compatibility and release boundaries](V2_COMPATIBILITY.md).
+This checkout is not a published release.
+
 OptiProfiler adapter for the Rios-Sahinidis 2013 derivative-free optimization
 test set.
 
@@ -33,16 +36,17 @@ registers this API-v1 entry point:
 rs13 = "optiprofiler_rs13:get_problem_library"
 ```
 
-The corresponding OptiProfiler release and this plugin distribution have not
-been published yet. The `0.1.0` value in `pyproject.toml` is build metadata for
-feature-branch wheel and source-distribution tests, not a release announcement.
+This candidate requires OptiProfiler >=2.0.0. The corresponding core release
+and this plugin are not published yet. The unchanged `0.1.0` value is candidate
+wheel and source-distribution metadata, not a release announcement.
 RS13 is not an OptiProfiler core submodule and remains external.
 
-For local development against a checked-out API-v1 OptiProfiler core:
+For an isolated candidate test, install both reviewed wheels with normal
+dependency resolution. Replace these paths with the actual build artifacts:
 
 ```bash
-python -m pip install -e /path/to/optiprofiler
-python -m pip install -e . --no-deps --no-build-isolation
+python -m pip install /path/to/core.whl /path/to/adapter.whl
+python -m pip check
 ```
 
 ## Contents
@@ -51,6 +55,10 @@ python -m pip install -e . --no-deps --no-build-isolation
 - `runtime/rs13pm/`: the 502 vendored official Python problem drivers used by
   `rs13_load`.
 - `probinfo_rs13.csv`: committed selection metadata used by `rs13_select`.
+- `references.json`: offline-verified, source-bound best-known scalar values;
+  it contains no solution coordinates.
+- `scripts/collect_references.py`: audits the pinned official solution archive
+  through the actual adapter to regenerate that reference catalog.
 - `THIRD_PARTY_NOTICES.md`: exact upstream archive provenance, checksum,
   permission record, and citation.
 - `UPSTREAM_SNAPSHOT.json`: machine-readable runtime and maintenance-oracle
@@ -85,7 +93,7 @@ Two additional archives are test and maintenance inputs, not runtime,
 distribution, or API-v1 protocol dependencies:
 
 - `rs13sols.zip`: known solution vectors used as a test oracle and when
-  regenerating `fbest` metadata.
+  regenerating `fbest` metadata and the verified scalar reference catalog.
 - `problemdata.zip`: independent dimension, bound, and starting-point records
   used only by the upstream-data audit and metadata regeneration.
 
@@ -146,7 +154,7 @@ Keep two update operations separate:
 
 ```bash
 git pull --ff-only
-python -m pip install -e . --no-deps --no-build-isolation
+python -m pip install -e .
 ```
 
 The tested adapter commit is recorded by the OptiProfiler core
@@ -161,7 +169,8 @@ Remove only the experimental adapter and its entry point with:
 python -m pip uninstall optiprofiler-rs13
 ```
 
-This removes the adapter, entry point, bundled runtime, and bundled metadata.
+This removes the adapter, entry point, bundled runtime, metadata, and scalar
+reference catalog.
 It preserves any separately managed `RS13PM_DIR`, `RS13SOLS_DIR`,
 `RS13_PROBLEMDATA_DIR`, maintenance inputs, caches, and benchmark output.
 Removing the OptiProfiler core leaves this independent adapter and its bundled
@@ -203,10 +212,48 @@ RS13 does not expose variable-size constructors through adapter arguments.
 Each official RS13 source file corresponds to one fixed problem, so this table
 does not include S2MPJ-style `argins`, `dims`, `mbs`, or `f0s` columns.
 
-The known solutions are currently used only to compute lightweight metadata
-such as `fbest` and to validate the wrapper in tests. Solvers do not receive
-these solution vectors through `rs13_load`. They may be useful later for
-benchmark diagnostics, validation, or quality checks.
+Known solutions support metadata and offline reference verification. Solvers
+never receive their coordinates through `rs13_load`.
+
+### Verified Scalar References
+
+The candidate attaches a public `Problem.reference` record when offline
+evidence matches the current wrapped instance. Each record has exactly
+`merit`, `kind="best_known"`, `source`, and
+`mapping="feasible_objective/1"`. It is a feasible objective value, **not a
+proof of global optimality**, a solution vector, or a solver result.
+
+The reviewed catalog accepts 500 of the 502 official solution files. The
+actual adapter checked dimensions, finite coordinates, exact exposed-bound
+feasibility (without clipping or tolerance), and two identical finite objective
+evaluations. `biggs5` (6 coordinates for 5 variables) and `problem2.1` (3 for 2)
+are rejected and keep `reference=None`. Problem definitions, bound policy,
+initial points and selection metadata are unchanged.
+
+Ordinary loading reads only the scalar catalog: no solution archive, objective
+evaluation, or reference search is needed. Matching includes the problem
+source SHA-256, dimension, effective bounds, and a conservative fingerprint of
+the complete `rs13_tools.py` loader. Even a mathematically neutral loader
+refactor requires reviewed regeneration; README/tests do not affect it.
+Missing, malformed or mismatched records silently mean unknown (`None`), not
+a fallback to `fbest`, an initial value, or a history minimum. An override
+source with identical bytes can reuse evidence; changed bytes cannot.
+
+Reference propagation under features, evaluation accounting, scoring and
+plots remain core responsibilities. Providing this record does not claim
+that a particular core release consumes it in profiles. No benchmark or
+library-specific switch is added.
+
+Maintainer regeneration uses the pinned archive checksum, not live upstream:
+
+```bash
+python scripts/collect_references.py \
+  --solutions-archive /path/to/rs13sols.zip \
+  --output references.json --report /path/to/reference-audit.json
+```
+
+Review the rejection report and source fingerprints before committing the
+generated catalog. The report and catalog store no solution coordinates.
 
 ## Bound Policy
 

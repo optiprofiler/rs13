@@ -26,7 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.17.0",
-    "optiprofiler>=1.4.0",
+    "optiprofiler>=2.0.0",
 ]
 
 [project.entry-points."optiprofiler.problem_libraries"]
@@ -45,9 +45,11 @@ include-package-data = false
 [tool.setuptools.package-data]
 optiprofiler_rs13 = [
     "README.md",
+    "V2_COMPATIBILITY.md",
     "THIRD_PARTY_NOTICES.md",
     "UPSTREAM_SNAPSHOT.json",
     "probinfo_rs13.csv",
+    "references.json",
     "docs/*.md",
     "runtime/rs13pm/*.py",
 ]

@@ -11,6 +11,11 @@ from typing import Callable
 import numpy as np
 
 try:
+    from .rs13_reference import load_reference
+except ImportError:  # Direct repository-root usage remains supported.
+    from rs13_reference import load_reference
+
+try:
     from optiprofiler.opclasses import Problem
 except ImportError:  # pragma: no cover - exercised by direct local checks.
     Problem = None
@@ -464,7 +469,9 @@ def rs13_load_problem(problem_name: str, source_dir: str | os.PathLike | None = 
     kwargs = {"name": raw.name.upper()}
     if not rs13_uses_effective_unconstrained_bounds(raw.name):
         kwargs.update({"xl": raw.xmin, "xu": raw.xmax})
-    return Problem(fun, raw.x0, **kwargs)
+    reference = load_reference(raw.name, raw.source_path, raw.x0.size,
+                               kwargs.get("xl"), kwargs.get("xu"))
+    return Problem(fun, raw.x0, reference=reference, **kwargs)
 
 
 def rs13_uses_effective_unconstrained_bounds(problem_name: str) -> bool:
