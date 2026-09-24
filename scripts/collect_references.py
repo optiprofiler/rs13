@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import platform
 from pathlib import Path
 import sys
@@ -32,6 +33,7 @@ def main():
         raise ValueError("Solution archive differs from the reviewed upstream snapshot.")
     records = {}
     audit = []
+    runtime_root = adapter.VENDORED_RS13PM_DIR.resolve()
     with ZipFile(args.solutions_archive) as archive:
         solutions = {}
         for member in archive.namelist():
@@ -40,7 +42,7 @@ def main():
                 if name in solutions:
                     raise ValueError(f"Ambiguous solution file for {name}.")
                 solutions[name] = member
-        for source in sorted(adapter.VENDORED_RS13PM_DIR.glob("*.py")):
+        for source in sorted(runtime_root.glob("*.py")):
             name = source.stem
             status = {"name": name, "status": "rejected"}
             try:
@@ -48,7 +50,16 @@ def main():
                     raise ValueError("missing_solution")
                 solution_bytes = archive.read(solutions[name])
                 x = np.asarray([float(v) for v in solution_bytes.decode("utf-8").split()], dtype=float)
-                problem = adapter.rs13_load_problem(name)
+                source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+                raw = adapter.rs13_load_raw(name, source_dir=runtime_root)
+                actual_source = raw.source_path.resolve()
+                if actual_source != source.resolve():
+                    raise ValueError("source_identity_mismatch")
+                status.update(source_path=str(source.resolve()), raw_source_path=str(actual_source),
+                              problem_sha256=source_hash)
+                # Bind both loads explicitly: maintainer RS13PM_DIR overrides
+                # must never be relabeled as evidence for bundled source.
+                problem = adapter.rs13_load_problem(name, source_dir=runtime_root)
                 if x.size != problem.n:
                     raise ValueError(f"dimension_mismatch:{x.size}!={problem.n}")
                 if not np.all(np.isfinite(x)):
@@ -61,7 +72,8 @@ def main():
                     raise ValueError("nonfinite_objective")
                 if value != repeated:
                     raise ValueError("nonrepeatable_objective")
-                source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+                if hashlib.sha256(actual_source.read_bytes()).hexdigest() != source_hash:
+                    raise ValueError("source_changed_during_audit")
                 solution_hash = hashlib.sha256(solution_bytes).hexdigest()
                 bound_hash = bounds_digest(problem.n, problem.xl, problem.xu)
                 records[name] = {
@@ -84,6 +96,8 @@ def main():
     report = {"accepted": len(records), "rejected": len(audit)-len(records),
               "evaluations_per_accepted_record": 2, "coordinates_stored": False,
               "python": platform.python_version(), "numpy": np.__version__,
+              "runtime_root": str(runtime_root), "ignored_RS13PM_DIR": os.environ.get("RS13PM_DIR"),
+              "adapter_sha256": adapter_digest(), "collector_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               "records": audit}
     args.report.write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")
     print(json.dumps({key: report[key] for key in ("accepted", "rejected", "coordinates_stored")}))

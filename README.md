@@ -254,6 +254,11 @@ python scripts/collect_references.py \
 
 Review the rejection report and source fingerprints before committing the
 generated catalog. The report and catalog store no solution coordinates.
+The collector explicitly binds the bundled runtime directory and checks the
+raw source identity; it never uses `RS13PM_DIR` to generate bundled evidence.
+The audit report records that ignored environment setting, resolved source
+paths, and source/collector fingerprints. Normal user loading still supports
+the documented maintainer override and fails closed on mismatched evidence.
 
 ## Bound Policy
 
