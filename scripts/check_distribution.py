@@ -30,6 +30,7 @@ def _check_archive(path: Path) -> None:
 
     required_suffixes = (
         "/probinfo_rs13.csv",
+        "/LICENSE",
         "/THIRD_PARTY_NOTICES.md",
         "/UPSTREAM_SNAPSHOT.json",
         "/references.json",

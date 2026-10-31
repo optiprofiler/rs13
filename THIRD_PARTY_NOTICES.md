@@ -1,6 +1,21 @@
 # Third-Party Notices
 
+The `optiprofiler-rs13` distribution combines separately licensed material. Its
+license metadata is recorded as
+`BSD-3-Clause AND LicenseRef-RS13-Upstream-Permission`.
+
+## OptiProfiler adapter
+
+The Python adapter, generated metadata (`probinfo_rs13.csv` and
+`references.json`), maintenance scripts, tests and documentation are licensed
+under the BSD 3-Clause License in `LICENSE`. That license does not cover the
+RS13 problem sources below, and the permission recorded below does not cover
+the adapter.
+
 ## RS13 problem sources
+
+`LicenseRef-RS13-Upstream-Permission` refers to the upstream permission recorded
+in this section.
 
 `runtime/rs13pm/` contains the 502 Python problem drivers from the official
 `rs13pm.zip` archive for the Rios-Sahinidis 2013 derivative-free optimization
