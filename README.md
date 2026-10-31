@@ -1,7 +1,6 @@
 # RS13 Adapter
 
-**V2 candidate:** See [compatibility and release boundaries](V2_COMPATIBILITY.md).
-This checkout is not a published release.
+**OptiProfiler 2.0:** See [compatibility and release boundaries](V2_COMPATIBILITY.md).
 
 OptiProfiler adapter for the Rios-Sahinidis 2013 derivative-free optimization
 test set.
@@ -36,18 +35,24 @@ registers this API-v1 entry point:
 rs13 = "optiprofiler_rs13:get_problem_library"
 ```
 
-This candidate requires OptiProfiler >=2.0.0. The corresponding core release
-and this plugin are not published yet. The unchanged `0.1.0` value is candidate
-wheel and source-distribution metadata, not a release announcement.
-RS13 is not an OptiProfiler core submodule and remains external.
+This adapter requires `optiprofiler>=2.0.0`. OptiProfiler 2.0.0 is not on PyPI
+until it is released, and this plugin is not published on PyPI either. The
+`0.1.0` value is wheel and source-distribution metadata, not a release
+announcement. RS13 is not an OptiProfiler core submodule and remains external.
 
-For an isolated candidate test, install both reviewed wheels with normal
-dependency resolution. Replace these paths with the actual build artifacts:
+Install the adapter at the exact commit recorded in the core's
+`problem_libraries.lock`, using normal dependency resolution:
 
 ```bash
-python -m pip install /path/to/core.whl /path/to/adapter.whl
+python -m pip install "optiprofiler-rs13 @ git+https://github.com/optiprofiler/rs13@<sha>"
 python -m pip check
 ```
+
+Replace `<sha>` with the full commit from the lock. The tag `optiprofiler-2.0.0`
+marks the commit tested with OptiProfiler 2.0.0. Until OptiProfiler 2.0.0 is on
+PyPI, install that core first from its own wheel or checkout, because pip cannot
+otherwise satisfy `optiprofiler>=2.0.0`. Do not work around this with
+`--no-deps`: it skips the compatibility check that the requirement expresses.
 
 ## Contents
 
@@ -55,8 +60,8 @@ python -m pip check
 - `runtime/rs13pm/`: the 502 vendored official Python problem drivers used by
   `rs13_load`.
 - `probinfo_rs13.csv`: committed selection metadata used by `rs13_select`.
-- `references.json`: offline-verified, source-bound best-known scalar values;
-  it contains no solution coordinates.
+- `references.json`: offline-verified, source-bound best-known values as raw
+  `fun`/`maxcv` records; it contains no solution coordinates.
 - `scripts/collect_references.py`: audits the pinned official solution archive
   through the actual adapter to regenerate that reference catalog.
 - `THIRD_PARTY_NOTICES.md`: exact upstream archive provenance, checksum,
@@ -215,20 +220,34 @@ does not include S2MPJ-style `argins`, `dims`, `mbs`, or `f0s` columns.
 Known solutions support metadata and offline reference verification. Solvers
 never receive their coordinates through `rs13_load`.
 
-### Verified Scalar References
+### Verified References
 
-The candidate attaches a public `Problem.reference` record when offline
-evidence matches the current wrapped instance. Each record has exactly
-`merit`, `kind="best_known"`, `source`, and
-`mapping="feasible_objective/1"`. It is a feasible objective value, **not a
-proof of global optimality**, a solution vector, or a solver result.
+A loaded problem carries a public `Problem.reference` record when offline
+evidence matches the current wrapped instance. Each record has exactly `fun`,
+`maxcv=0`, `kind="feasible"` and `source`: the raw objective and violation of a
+feasible point, not a precomputed merit. It is **not a proof of global
+optimality**, a solution vector, or a solver result. Standard profiles use it as
+the convergence target of that problem, and a solver may still beat it. Without
+a record, the core keeps the empirical target from the compared runs.
 
-The reviewed catalog accepts 500 of the 502 official solution files. The
-actual adapter checked dimensions, finite coordinates, exact exposed-bound
-feasibility (without clipping or tolerance), and two identical finite objective
-evaluations. `biggs5` (6 coordinates for 5 variables) and `problem2.1` (3 for 2)
-are rejected and keep `reference=None`. Problem definitions, bound policy,
-initial points and selection metadata are unchanged.
+The reviewed catalog accepts 350 of the 502 official solution files. The actual
+adapter checked dimensions, finite coordinates, exact exposed-bound feasibility
+(without clipping or tolerance), zero violation, two identical finite objective
+evaluations, and an objective strictly below the value at the initial point.
+
+The other 152 problems keep `reference=None`:
+
+- `biggs5` (6 coordinates for 5 variables) and `problem2.1` (3 for 2) have no
+  dimension-matched solution;
+- for 146 problems the official solution file repeats the starting point
+  exactly, and plain local solvers reach far lower values on some of them
+  (`convex4_25_3`: 101.97 at the official point, below 1e-6 from L-BFGS-B);
+- for `problem2.17`, `problem2.23`, `ex8_1_4` and `ex4_1_4` the official value
+  is worse than the initial one.
+
+A target that the starting point already attains would pass every run at its
+first evaluation, so these stay unknown rather than false. Problem definitions,
+bound policy, initial points and selection metadata are unchanged.
 
 Ordinary loading reads only the scalar catalog: no solution archive, objective
 evaluation, or reference search is needed. Matching includes the problem
@@ -239,10 +258,8 @@ Missing, malformed or mismatched records silently mean unknown (`None`), not
 a fallback to `fbest`, an initial value, or a history minimum. An override
 source with identical bytes can reuse evidence; changed bytes cannot.
 
-Reference propagation under features, evaluation accounting, scoring and
-plots remain core responsibilities. Providing this record does not claim
-that a particular core release consumes it in profiles. No benchmark or
-library-specific switch is added.
+Reference propagation under features, evaluation accounting, scoring and plots
+are core responsibilities. No benchmark or library-specific switch is added.
 
 Maintainer regeneration uses the pinned archive checksum, not live upstream:
 
@@ -371,6 +388,10 @@ Do not commit archive ZIPs, `rs13sols`, `problemdata`, BAM executables,
 benchmark outputs, or local cache/build artifacts.
 
 ## Provenance and Citation
+
+The adapter is licensed under the BSD 3-Clause License in [LICENSE](LICENSE).
+That license does not extend to the RS13 problem sources, whose terms stay as
+recorded in `THIRD_PARTY_NOTICES.md`.
 
 The vendored `rs13pm.zip` archive did not include a standalone `LICENSE`,
 `LICENCE`, `COPYING`, or `NOTICE` file, and its Python files did not carry an
