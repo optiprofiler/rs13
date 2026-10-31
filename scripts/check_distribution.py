@@ -55,13 +55,13 @@ def _check_archive(path: Path) -> None:
     else:
         with tarfile.open(path, "r:gz") as archive:
             catalog = json.load(archive.extractfile(member))
-    if catalog["schema"] != "rs13-best-known/1" or len(catalog["records"]) != 500:
+    if catalog["schema"] != "rs13-best-known/2" or len(catalog["records"]) != 350:
         raise AssertionError(f"{path.name}: unexpected reference catalog")
     for entry in catalog["records"].values():
         if set(entry) != {"dimension", "problem_sha256", "bounds_sha256", "solution_sha256", "reference"}:
             raise AssertionError(f"{path.name}: unexpected reference data")
-        if set(entry["reference"]) != {"merit", "kind", "source", "mapping"}:
-            raise AssertionError(f"{path.name}: reference must contain scalars/provenance, not points")
+        if set(entry["reference"]) != {"fun", "maxcv", "kind", "source"}:
+            raise AssertionError(f"{path.name}: reference must contain raw values/provenance, not points")
 
 
 def main() -> None:

@@ -72,6 +72,16 @@ def main():
                     raise ValueError("nonfinite_objective")
                 if value != repeated:
                     raise ValueError("nonrepeatable_objective")
+                violation = float(problem.maxcv(x))
+                if violation != 0.0:
+                    raise ValueError(f"infeasible_solution:{violation}")
+                # Many official files merely repeat the starting point, and some
+                # plain solvers go far below their value. A target that x0 already
+                # attains says nothing, and every run would pass its first
+                # evaluation. Unknown keeps the empirical target instead.
+                initial = float(problem.fun(problem.x0))
+                if not math.isfinite(initial) or value >= initial:
+                    raise ValueError("not_better_than_initial_point")
                 if hashlib.sha256(actual_source.read_bytes()).hexdigest() != source_hash:
                     raise ValueError("source_changed_during_audit")
                 solution_hash = hashlib.sha256(solution_bytes).hexdigest()
@@ -79,22 +89,21 @@ def main():
                 records[name] = {
                     "dimension": problem.n, "problem_sha256": source_hash,
                     "bounds_sha256": bound_hash, "solution_sha256": solution_hash,
-                    "reference": {"merit": value, "kind": "best_known",
-                        "mapping": "feasible_objective/1",
+                    "reference": {"fun": value, "maxcv": 0.0, "kind": "feasible",
                         "source": f"RS13 official {name}.sol; rs13sols SHA256 {archive_hash}; "
                                   f"solution SHA256 {solution_hash}; problem SHA256 {source_hash}; "
                                   "offline finite/feasible adapter evaluation; doi:10.1007/s10898-012-9951-y"},
                 }
-                status.update(status="accepted", merit=value)
+                status.update(status="accepted", fun=value)
             except Exception as exc:
                 status["reason"] = f"{type(exc).__name__}:{exc}"
             audit.append(status)
-    catalog = {"schema": "rs13-best-known/1", "adapter_sha256": adapter_digest(),
+    catalog = {"schema": "rs13-best-known/2", "adapter_sha256": adapter_digest(),
                "runtime_archive_sha256": snapshot["runtime"]["sha256"],
                "solution_archive_sha256": archive_hash, "records": records}
     args.output.write_text(json.dumps(catalog, indent=2, sort_keys=True, allow_nan=False) + "\n")
     report = {"accepted": len(records), "rejected": len(audit)-len(records),
-              "evaluations_per_accepted_record": 2, "coordinates_stored": False,
+              "evaluations_per_accepted_record": 3, "coordinates_stored": False,
               "python": platform.python_version(), "numpy": np.__version__,
               "runtime_root": str(runtime_root), "ignored_RS13PM_DIR": os.environ.get("RS13PM_DIR"),
               "adapter_sha256": adapter_digest(), "collector_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),

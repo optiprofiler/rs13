@@ -1,6 +1,6 @@
-"""Installed-provider checks against the OptiProfiler 2.0 candidate.
+"""Installed-provider checks against OptiProfiler 2.0.
 
-Set OP_TEST_V2=1 only in the isolated candidate environment. Native provider
+Set OP_TEST_V2=1 in an environment with core 2.0. Native provider
 validation belongs on a supported test host, not in a source-only lint job.
 """
 import os
@@ -9,7 +9,7 @@ import numpy as np
 from optiprofiler import Feature, FeaturedProblem, Problem
 
 
-@unittest.skipUnless(os.environ.get("OP_TEST_V2") == "1", "Requires the V2 candidate environment")
+@unittest.skipUnless(os.environ.get("OP_TEST_V2") == "1", "Requires an OptiProfiler 2.0 environment")
 class V2ContractTests(unittest.TestCase):
     def test_reference_and_core_owned_recording(self):
         from optiprofiler_rs13 import rs13_load as load
@@ -17,7 +17,8 @@ class V2ContractTests(unittest.TestCase):
             with self.subTest(feature=specification):
                 problem = load("rosenbr")
                 self.assertIs(type(problem), Problem)
-                self.assertEqual(problem.reference.kind, "best_known")
+                self.assertEqual(problem.reference.kind, "feasible")
+                self.assertEqual(problem.reference.maxcv, 0.0)
                 trial = FeaturedProblem(problem, Feature(specification), 5, 19)
                 self.assertEqual(trial.reference, problem.reference)
                 before = (trial.n_eval_fun, trial.n_eval_cub, trial.n_eval_ceq)
@@ -28,7 +29,7 @@ class V2ContractTests(unittest.TestCase):
 
     def test_missing_evidence_remains_unknown(self):
         from optiprofiler_rs13 import rs13_load
-        for name in ("biggs5", "problem2.1"):
+        for name in ("biggs5", "problem2.1", "problem2.17", "convex4_25_3"):
             self.assertIsNone(rs13_load(name).reference)
 
     def test_invalidating_feature_drops_reference(self):

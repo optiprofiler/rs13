@@ -1,9 +1,10 @@
-"""Internal, fail-closed lookup of offline-verified feasible scalar records.
+"""Internal, fail-closed lookup of offline-verified feasible reference records.
 
-No solution coordinates, downloads, or oracle evaluations belong here. The
-whole loader module is conservatively fingerprinted; unrelated README/tests
-are not dependencies. A loader refactor requires regeneration even if its
-mathematical effect is neutral.
+Each record holds the raw objective `fun` and violation `maxcv` of a feasible
+point, never a precomputed merit. No solution coordinates, downloads, or oracle
+evaluations belong here. The whole loader module is conservatively
+fingerprinted; unrelated README/tests are not dependencies. A loader refactor
+requires regeneration even if its mathematical effect is neutral.
 """
 from functools import lru_cache
 import hashlib
@@ -44,7 +45,7 @@ def load_reference(name, source_path, n, xl, xu):
     try:
         stat = CATALOG_PATH.stat()
         catalog = _read_catalog(str(CATALOG_PATH), stat.st_size, stat.st_mtime_ns)
-        if catalog.get("schema") != "rs13-best-known/1" or catalog.get("adapter_sha256") != adapter_digest():
+        if catalog.get("schema") != "rs13-best-known/2" or catalog.get("adapter_sha256") != adapter_digest():
             return None
         entry = catalog["records"][name]
         if entry["dimension"] != n or entry["bounds_sha256"] != bounds_digest(n, xl, xu):
@@ -52,14 +53,17 @@ def load_reference(name, source_path, n, xl, xu):
         if entry["problem_sha256"] != hashlib.sha256(Path(source_path).read_bytes()).hexdigest():
             return None
         reference = entry["reference"]
-        if set(reference) != {"merit", "kind", "source", "mapping"}:
+        if set(reference) != {"fun", "maxcv", "kind", "source"}:
             return None
-        merit = reference["merit"]
-        if isinstance(merit, bool) or not isinstance(merit, (int, float)) or not math.isfinite(merit):
+        fun = reference["fun"]
+        if isinstance(fun, bool) or not isinstance(fun, (int, float)) or not math.isfinite(fun):
             return None
-        if isinstance(merit, int) and int(float(merit)) != merit:
+        if isinstance(fun, int) and int(float(fun)) != fun:
             return None
-        if reference["kind"] != "best_known" or reference["mapping"] != "feasible_objective/1":
+        maxcv = reference["maxcv"]
+        if isinstance(maxcv, bool) or not isinstance(maxcv, (int, float)) or maxcv != 0:
+            return None
+        if reference["kind"] != "feasible":
             return None
         if not isinstance(reference["source"], str) or not reference["source"].strip():
             return None

@@ -45,9 +45,26 @@ class CollectorSourceTests(unittest.TestCase):
     def test_environment_override_cannot_poison_vendored_reference(self):
         catalog, report = self.collect()
         self.assertEqual(report["accepted"], 1)
-        value = catalog["records"]["rosenbr"]["reference"]["merit"]
+        value = catalog["records"]["rosenbr"]["reference"]["fun"]
         self.assertGreaterEqual(value, 0.0, "The f-1000 override was mislabeled with the trusted source hash")
         self.assertAlmostEqual(value, 1.236405056073363e-7, places=14)
+
+    def test_record_holds_raw_feasible_values_only(self):
+        catalog, _ = self.collect()
+        reference = catalog["records"]["rosenbr"]["reference"]
+        self.assertEqual(set(reference), {"fun", "maxcv", "kind", "source"})
+        self.assertEqual((reference["maxcv"], reference["kind"]), (0.0, "feasible"))
+
+    def test_value_no_better_than_the_initial_point_is_rejected(self):
+        # Official files for these problems repeat x0 or are worse than it.
+        root = Path(__file__).resolve().parents[1]
+        for name in ("convex1_10_1", "problem2.17"):
+            shutil.copyfile(root / f"runtime/rs13pm/{name}.py", self.trusted / f"{name}.py")
+        catalog, report = self.collect()
+        self.assertEqual(sorted(catalog["records"]), ["rosenbr"])
+        reasons = {item["name"]: item.get("reason", "") for item in report["records"]}
+        for name in ("convex1_10_1", "problem2.17"):
+            self.assertIn("not_better_than_initial_point", reasons[name])
 
     def test_wrong_actual_raw_source_is_rejected(self):
         real_loader = self.collector.adapter.rs13_load_raw

@@ -1,4 +1,4 @@
-"""Installed-provider tests for offline, source-bound scalar references."""
+"""Installed-provider tests for offline, source-bound reference records."""
 import copy
 import json
 import multiprocessing
@@ -11,6 +11,11 @@ import unittest
 from unittest import mock
 
 import numpy as np
+
+
+# Dimension mismatch, or an official value no better than the initial point.
+UNKNOWN_REFERENCES = ("biggs5", "problem2.1", "problem2.17", "problem2.23", "ex8_1_4",
+                      "ex4_1_4", "convex4_25_3", "convex1_10_1")
 
 
 def _worker_load(name):
@@ -39,18 +44,26 @@ class ReferenceTests(unittest.TestCase):
         with mock.patch.object(self.reader, "_read_catalog", return_value=catalog):
             return self.reader.load_reference("rosenbr", source, 2, None, None)
 
-    def test_catalog_has_scalars_not_points(self):
+    def test_catalog_has_raw_values_not_merits_or_points(self):
         records = self.catalog["records"]
-        self.assertEqual(len(records), 500)
-        self.assertNotIn("biggs5", records)
-        self.assertNotIn("problem2.1", records)
+        self.assertEqual(self.catalog["schema"], "rs13-best-known/2")
+        self.assertEqual(len(records), 350)
+        for name in UNKNOWN_REFERENCES:
+            self.assertNotIn(name, records)
         for entry in records.values():
             self.assertEqual(set(entry), {"dimension", "problem_sha256", "bounds_sha256",
                                           "solution_sha256", "reference"})
             reference = entry["reference"]
-            self.assertEqual(set(reference), {"merit", "kind", "source", "mapping"})
-            self.assertTrue(np.isfinite(reference["merit"]))
-            self.assertEqual(reference["kind"], "best_known")
+            self.assertEqual(set(reference), {"fun", "maxcv", "kind", "source"})
+            self.assertTrue(np.isfinite(reference["fun"]))
+            self.assertEqual(reference["maxcv"], 0.0)
+            self.assertEqual(reference["kind"], "feasible")
+
+    def test_every_reference_improves_on_the_initial_point(self):
+        # A target that x0 attains would pass every run at its first evaluation.
+        for name, entry in self.catalog["records"].items():
+            problem = self.adapter.rs13_load_problem(name)
+            self.assertLess(entry["reference"]["fun"], problem.fun(problem.x0), name)
 
     def test_load_adds_no_oracle_evaluation(self):
         raw = self.adapter.rs13_load_raw("rosenbr")
@@ -59,6 +72,7 @@ class ReferenceTests(unittest.TestCase):
             problem = self.adapter.rs13_load_problem("rosenbr")
         raw.objective.assert_not_called()
         self.assertEqual(problem.reference.as_dict(), self.catalog["records"]["rosenbr"]["reference"])
+        self.assertIsNone(problem.reference.x_ref)
         self.assertTrue(np.isfinite(problem.fun(problem.x0)))
         self.assertEqual(raw.objective.call_count, 1)
 
@@ -73,11 +87,13 @@ class ReferenceTests(unittest.TestCase):
             bad = copy.deepcopy(self.catalog)
             bad["records"]["rosenbr"][field] = value
             malformed.append(bad)
-        for field, value in (("merit", True), ("merit", float("inf")),
-                             ("merit", float("nan")), ("merit", "0"),
-                             ("merit", 2 ** 53 + 1), ("merit", 10 ** 400),
-                             ("kind", "global_optimum"), ("mapping", "unknown"),
-                             ("source", ""), ("point", [1, 1])):
+        for field, value in (("fun", True), ("fun", float("inf")),
+                             ("fun", float("nan")), ("fun", "0"),
+                             ("fun", 2 ** 53 + 1), ("fun", 10 ** 400),
+                             ("maxcv", 1.0), ("maxcv", True), ("maxcv", "0"),
+                             ("kind", "merit"), ("kind", "best_known"),
+                             ("mapping", "feasible_objective/1"), ("merit", 0.0),
+                             ("source", ""), ("point", [1, 1]), ("x_ref", [1, 1])):
             bad = copy.deepcopy(self.catalog)
             bad["records"]["rosenbr"]["reference"][field] = value
             malformed.append(bad)
