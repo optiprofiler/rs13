@@ -53,6 +53,8 @@ marks the commit tested with OptiProfiler 2.0.0. Until OptiProfiler 2.0.0 is on
 PyPI, install that core first from its own wheel or checkout, because pip cannot
 otherwise satisfy `optiprofiler>=2.0.0`. Do not work around this with
 `--no-deps`: it skips the compatibility check that the requirement expresses.
+pip keeps an installed adapter of the same version, so uninstall an earlier
+source build before installing another commit.
 
 ## Contents
 
