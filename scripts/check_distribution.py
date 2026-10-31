@@ -1,3 +1,4 @@
+from hashlib import sha256
 from pathlib import Path
 import json
 import tarfile
@@ -49,12 +50,18 @@ def _check_archive(path: Path) -> None:
             raise AssertionError(f"{path.name} includes forbidden maintenance data: {name}")
 
     member = next(name for name in names if name.endswith("/references.json"))
+    loader = next(name for name in names if name.endswith("/rs13_tools.py"))
     if path.suffix == ".whl":
         with ZipFile(path) as archive:
             catalog = json.loads(archive.read(member))
+            loader_bytes = archive.read(loader)
     else:
         with tarfile.open(path, "r:gz") as archive:
             catalog = json.load(archive.extractfile(member))
+            loader_bytes = archive.extractfile(loader).read()
+    # A stale fingerprint would silently turn every reference into unknown.
+    if sha256(loader_bytes).hexdigest() != catalog["adapter_sha256"]:
+        raise AssertionError(f"{path.name}: the catalog does not match the packaged loader")
     if catalog["schema"] != "rs13-best-known/2" or len(catalog["records"]) != 350:
         raise AssertionError(f"{path.name}: unexpected reference catalog")
     for entry in catalog["records"].values():

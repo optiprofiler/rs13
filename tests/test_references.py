@@ -31,7 +31,7 @@ def _worker_load(name):
     return problem.reference.as_dict(), trials
 
 
-@unittest.skipUnless(os.environ.get("OP_TEST_V2") == "1", "Requires installed V2 candidate")
+@unittest.skipUnless(os.environ.get("OP_TEST_V2") == "1", "Requires an OptiProfiler 2.0 environment")
 class ReferenceTests(unittest.TestCase):
     def setUp(self):
         from optiprofiler_rs13 import rs13_reference, rs13_tools

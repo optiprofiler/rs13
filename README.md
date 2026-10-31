@@ -152,8 +152,8 @@ assert "rs13" in list_problem_libraries()
 
 Keep two update operations separate:
 
-1. update the unpublished adapter, its reviewed vendored `rs13pm` snapshot,
-   and its provenance record on the compatible feature branch;
+1. update the adapter, its reviewed vendored `rs13pm` snapshot, and its
+   provenance record;
 2. update the external `rs13sols` and `problemdata` maintenance inputs only
    when running the corresponding checks.
 
