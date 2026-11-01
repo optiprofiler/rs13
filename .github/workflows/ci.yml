@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    env:
+      OP_TEST_V2: "1"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -21,17 +24,8 @@ jobs:
         with:
           repository: optiprofiler/optiprofiler
           path: optiprofiler
-          ref: main
-
-      - name: Bootstrap the API-v1 protocol under development
-        shell: bash
-        run: |
-          protocol_file="optiprofiler/python/optiprofiler/problem_libraries.py"
-          if ! test -f "$protocol_file" || ! grep -q "class ProblemLibraryPlugin" "$protocol_file"; then
-            git -C optiprofiler fetch --depth=1 origin python
-            git -C optiprofiler checkout --detach FETCH_HEAD
-          fi
-          grep -q "PROBLEM_LIBRARY_API_VERSION = 1" "$protocol_file"
+          # The exact 2.0.0 core this provider release was accepted with.
+          ref: ec130fb4e2fd7e59204bc4696d36b30eb2fa9da3
 
       - uses: actions/setup-python@v5
         with:
@@ -42,7 +36,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build "setuptools>=61" wheel
           python -m pip install -e optiprofiler
-          python -m pip install -e . --no-deps --no-build-isolation
+          python -m pip install -e . --no-build-isolation
 
       - name: Run API-v1 protocol tests
         run: python -m unittest discover -s tests -p 'test_plugin_protocol.py'
@@ -72,15 +66,21 @@ jobs:
           rs13sols_dir=$(find "$RUNNER_TEMP/rs13/rs13sols_unzipped" -type f -name branin.sol -exec dirname {} \; -quit)
           test -n "$rs13sols_dir"
           echo "RS13SOLS_DIR=$rs13sols_dir" >> "$GITHUB_ENV"
+          echo "RS13_REFERENCE_SOLUTIONS_ARCHIVE=$RUNNER_TEMP/rs13/rs13sols.zip" >> "$GITHUB_ENV"
 
       - name: Run solution-oracle tests
         run: python -m unittest discover -s tests -p 'test_rs13.py'
+
+      - name: Run reference and OptiProfiler 2.0 contract tests
+        run: |
+          python -m unittest discover -s tests -p 'test_reference*.py'
+          python -m unittest discover -s tests -p 'test_v2_contract.py'
 
       - name: Fresh installed plugin smoke
         run: |
           wheel="$(python -c 'from pathlib import Path; print(next(Path("dist").glob("*.whl")).resolve())')"
           python -m pip uninstall -y optiprofiler-rs13
-          python -m pip install --no-deps "$wheel"
+          python -m pip install "$wheel"
           tmpdir="$(mktemp -d)"
           cd "$tmpdir"
           env -u RS13PM_DIR -u RS13SOLS_DIR -u RS13_PROBLEMDATA_DIR python - <<'PY'
@@ -96,6 +96,7 @@ jobs:
           problem = plugin.load("branin", {})
           assert problem.n == 2
           assert abs(float(problem.fun(problem.x0)) - 24.129964413622268) < 1e-12
+          assert plugin.load("rosenbr", {}).reference.kind == "feasible"
           PY
 
       - name: Run smoke check
