@@ -48,8 +48,9 @@ python -m pip install "optiprofiler-rs13 @ git+https://github.com/optiprofiler/r
 python -m pip check
 ```
 
-Replace `<sha>` with the full commit from the lock. The tag `optiprofiler-2.0.0`
-marks the commit tested with OptiProfiler 2.0.0. Until OptiProfiler 2.0.0 is on
+Replace `<sha>` with the full commit pinned in the core's
+`problem_libraries.lock`: that is the commit tested with OptiProfiler 2.0.0. A
+tag is created at the release. Until OptiProfiler 2.0.0 is on
 PyPI, install that core first from its own wheel or checkout, because pip cannot
 otherwise satisfy `optiprofiler>=2.0.0`. Do not work around this with
 `--no-deps`: it skips the compatibility check that the requirement expresses.
